@@ -1,0 +1,17 @@
+{
+  "internalDomain": "example.com",
+  "permissions": {
+    "read": "allow",
+    "create": "allow",
+    "update": {
+      "self_only": "allow",
+      "internal": "allow",
+      "external": "deny"
+    },
+    "delete": {
+      "self_only": "allow",
+      "internal": "allow",
+      "external": "deny"
+    }
+  }
+}

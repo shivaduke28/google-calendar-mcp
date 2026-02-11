@@ -4,10 +4,12 @@ import { z } from "zod";
 import { encode } from "@toon-format/toon";
 import { authorize } from "./auth.js";
 import { google } from "googleapis";
+import { loadPermissionConfig, checkPermission, denyMessage, PermissionAction, OperationType } from "./permissions.js";
 
 // 環境変数から設定を読む
 const credentialsPath = process.env.GOOGLE_OAUTH_CREDENTIALS;
 const tokensPath = process.env.GOOGLE_OAUTH_TOKENS ?? "./tokens.json";
+const permissionConfigPath = process.env.GOOGLE_CALENDAR_PERMISSIONS;
 
 if (!credentialsPath) {
   console.error("GOOGLE_OAUTH_CREDENTIALS 環境変数を設定してください");
@@ -17,6 +19,18 @@ if (!credentialsPath) {
 // OAuth2認証
 const auth = await authorize(credentialsPath, tokensPath);
 const calendar = google.calendar({ version: "v3", auth });
+
+// パーミッション設定
+const permConfig = await loadPermissionConfig(permissionConfigPath);
+
+// 認証ユーザーのメールアドレスを取得
+let selfEmail = "";
+try {
+  const me = await calendar.calendarList.get({ calendarId: "primary" });
+  selfEmail = me.data.id ?? "";
+} catch {
+  console.error("認証ユーザーのメールアドレスの取得に失敗しました");
+}
 
 const server = new McpServer({
   name: "google-calendar-mcp",
@@ -101,6 +115,94 @@ server.registerTool(
         text: rows.length > 0
           ? encode({ events: rows })
           : "イベントが見つかりませんでした",
+      }],
+    };
+  }
+);
+
+server.registerTool(
+  "update-event",
+  {
+    description: "カレンダーイベントを更新する。変更したいフィールドのみ指定する。",
+    inputSchema: {
+      calendarId: z.string().describe("カレンダーID。自分のカレンダーは \"primary\""),
+      eventId: z.string().describe("更新するイベントのID"),
+      summary: z.string().optional().describe("新しいタイトル"),
+      start: z.string().optional().describe("新しい開始日時（ISO 8601）"),
+      end: z.string().optional().describe("新しい終了日時（ISO 8601）"),
+      description: z.string().optional().describe("新しい説明"),
+      location: z.string().optional().describe("新しい場所"),
+    },
+  },
+  async ({ calendarId, eventId, summary, start, end, description, location }) => {
+    // 既存のイベントを取得してパーミッションチェック
+    const existing = await calendar.events.get({ calendarId, eventId });
+    const attendees = (existing.data.attendees ?? [])
+      .map((a) => a.email)
+      .filter((e): e is string => Boolean(e));
+
+    const { action, condition } = checkPermission(permConfig, OperationType.Update, attendees, selfEmail);
+
+    if (action === PermissionAction.Deny) {
+      return {
+        content: [{ type: "text", text: denyMessage(OperationType.Update, condition) }],
+        isError: true,
+      };
+    }
+
+    const patch: Record<string, unknown> = {};
+    if (summary !== undefined) patch.summary = summary;
+    if (description !== undefined) patch.description = description;
+    if (location !== undefined) patch.location = location;
+    if (start !== undefined) patch.start = { dateTime: start, timeZone: "Asia/Tokyo" };
+    if (end !== undefined) patch.end = { dateTime: end, timeZone: "Asia/Tokyo" };
+
+    const updated = await calendar.events.patch({
+      calendarId,
+      eventId,
+      requestBody: patch,
+    });
+
+    return {
+      content: [{
+        type: "text",
+        text: `イベントを更新しました: ${updated.data.summary ?? "(無題)"}`,
+      }],
+    };
+  }
+);
+
+server.registerTool(
+  "delete-event",
+  {
+    description: "カレンダーイベントを削除する。",
+    inputSchema: {
+      calendarId: z.string().describe("カレンダーID。自分のカレンダーは \"primary\""),
+      eventId: z.string().describe("削除するイベントのID"),
+    },
+  },
+  async ({ calendarId, eventId }) => {
+    // 既存のイベントを取得してパーミッションチェック
+    const existing = await calendar.events.get({ calendarId, eventId });
+    const attendees = (existing.data.attendees ?? [])
+      .map((a) => a.email)
+      .filter((e): e is string => Boolean(e));
+
+    const { action, condition } = checkPermission(permConfig, OperationType.Delete, attendees, selfEmail);
+
+    if (action === PermissionAction.Deny) {
+      return {
+        content: [{ type: "text", text: denyMessage(OperationType.Delete, condition) }],
+        isError: true,
+      };
+    }
+
+    await calendar.events.delete({ calendarId, eventId });
+
+    return {
+      content: [{
+        type: "text",
+        text: `イベント「${existing.data.summary ?? "(無題)"}」を削除しました。`,
       }],
     };
   }
