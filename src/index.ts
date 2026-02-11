@@ -5,14 +5,20 @@ import { encode } from "@toon-format/toon";
 import { authorize } from "./auth.js";
 import { calendar as googleCalendar } from "@googleapis/calendar";
 import { loadPermissionConfig, checkPermission, denyMessage, PermissionAction, OperationType } from "./permissions.js";
+import { dirname, resolve } from "node:path";
+import { existsSync } from "node:fs";
 
-// 環境変数から設定を読む
-const credentialsPath = process.env.GOOGLE_OAUTH_CREDENTIALS;
-const tokensPath = process.env.GOOGLE_OAUTH_TOKENS ?? "./tokens.json";
-const permissionConfigPath = process.env.GOOGLE_CALENDAR_PERMISSIONS;
+// バイナリと同じディレクトリをデフォルトのベースパスにする
+// 環境変数が設定されていればそちらを優先する
+const baseDir = dirname(process.execPath);
+const credentialsPath = process.env.GOOGLE_OAUTH_CREDENTIALS ?? resolve(baseDir, "credentials.json");
+const tokensPath = process.env.GOOGLE_OAUTH_TOKENS ?? resolve(baseDir, "tokens.json");
+const permissionConfigPath = process.env.GOOGLE_CALENDAR_PERMISSIONS ??
+  (existsSync(resolve(baseDir, "permissions.json")) ? resolve(baseDir, "permissions.json") : undefined);
 
-if (!credentialsPath) {
-  console.error("GOOGLE_OAUTH_CREDENTIALS 環境変数を設定してください");
+if (!existsSync(credentialsPath)) {
+  console.error(`credentials.json が見つかりません: ${credentialsPath}`);
+  console.error("GOOGLE_OAUTH_CREDENTIALS 環境変数を設定するか、バイナリと同じディレクトリに credentials.json を配置してください");
   process.exit(1);
 }
 
