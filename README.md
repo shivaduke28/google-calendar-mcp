@@ -10,6 +10,7 @@ Google Calendar API の MCP (Model Context Protocol) サーバー。
 |---|---|
 | `get-current-time` | 現在の日時を取得する |
 | `list-events` | 1人または複数人のカレンダーのイベント一覧を取得する（TOON形式） |
+| `create-event` | カレンダーイベントを作成する |
 | `update-event` | カレンダーイベントを更新する |
 | `delete-event` | カレンダーイベントを削除する |
 

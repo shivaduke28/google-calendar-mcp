@@ -121,6 +121,49 @@ server.registerTool(
 );
 
 server.registerTool(
+  "create-event",
+  {
+    description: "カレンダーイベントを作成する。",
+    inputSchema: {
+      calendarId: z.string().describe("カレンダーID。自分のカレンダーは \"primary\""),
+      summary: z.string().describe("イベントのタイトル"),
+      start: z.string().describe("開始日時（ISO 8601）"),
+      end: z.string().describe("終了日時（ISO 8601）"),
+      description: z.string().optional().describe("説明"),
+      location: z.string().optional().describe("場所"),
+    },
+  },
+  async ({ calendarId, summary, start, end, description, location }) => {
+    const { action, condition } = checkPermission(permConfig, OperationType.Create, [], selfEmail);
+
+    if (action === PermissionAction.Deny) {
+      return {
+        content: [{ type: "text", text: denyMessage(OperationType.Create, condition) }],
+        isError: true,
+      };
+    }
+
+    const event = await calendar.events.insert({
+      calendarId,
+      requestBody: {
+        summary,
+        start: { dateTime: start, timeZone: "Asia/Tokyo" },
+        end: { dateTime: end, timeZone: "Asia/Tokyo" },
+        ...(description !== undefined && { description }),
+        ...(location !== undefined && { location }),
+      },
+    });
+
+    return {
+      content: [{
+        type: "text",
+        text: `イベントを作成しました: ${event.data.summary ?? "(無題)"} (ID: ${event.data.id})`,
+      }],
+    };
+  }
+);
+
+server.registerTool(
   "update-event",
   {
     description: "カレンダーイベントを更新する。変更したいフィールドのみ指定する。",
