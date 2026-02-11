@@ -261,22 +261,5 @@ server.registerTool(
   }
 );
 
-// デバッグ用（あとで消す）
-server.registerTool(
-  "debug-config",
-  {
-    description: "デバッグ: 現在の設定を表示する",
-    inputSchema: {},
-  },
-  async () => {
-    return {
-      content: [{
-        type: "text",
-        text: JSON.stringify({ selfEmail, permConfig, baseDir, credentialsPath, tokensPath, permissionConfigPath }, null, 2),
-      }],
-    };
-  }
-);
-
 const transport = new StdioServerTransport();
 await server.connect(transport);
