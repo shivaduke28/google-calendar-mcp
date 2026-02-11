@@ -40,7 +40,7 @@ try {
 
 const server = new McpServer({
   name: "google-calendar-mcp",
-  version: "0.1.0",
+  version: "0.2.0",
 });
 
 server.registerTool(
@@ -256,6 +256,23 @@ server.registerTool(
       content: [{
         type: "text",
         text: `イベント「${existing.data.summary ?? "(無題)"}」を削除しました。`,
+      }],
+    };
+  }
+);
+
+// デバッグ用（あとで消す）
+server.registerTool(
+  "debug-config",
+  {
+    description: "デバッグ: 現在の設定を表示する",
+    inputSchema: {},
+  },
+  async () => {
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({ selfEmail, permConfig, baseDir, credentialsPath, tokensPath, permissionConfigPath }, null, 2),
       }],
     };
   }
