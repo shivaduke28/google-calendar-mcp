@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { encode } from "@toon-format/toon";
 import { authorize } from "./auth.js";
 import { google } from "googleapis";
 
@@ -42,36 +43,63 @@ server.registerTool(
 server.registerTool(
   "list-events",
   {
-    description: "カレンダーのイベント一覧を取得する",
+    description: "1人または複数人のカレンダーのイベント一覧を取得する。レスポンスはTOON形式で返す。",
     inputSchema: {
-      calendarId: z.string().default("primary").describe("カレンダーID（デフォルト: primary）"),
-      timeMin: z.string().optional().describe("開始日時（ISO 8601）"),
-      timeMax: z.string().optional().describe("終了日時（ISO 8601）"),
-      maxResults: z.number().optional().default(10).describe("最大取得件数"),
+      calendarIds: z.array(z.string()).describe("カレンダーID（メールアドレス）の配列。自分のカレンダーは \"primary\""),
+      timeMin: z.string().describe("開始日時（ISO 8601）"),
+      timeMax: z.string().describe("終了日時（ISO 8601）"),
+      maxResults: z.number().optional().default(20).describe("カレンダーごとの最大取得件数"),
     },
   },
-  async ({ calendarId, timeMin, timeMax, maxResults }) => {
-    const res = await calendar.events.list({
-      calendarId,
-      timeMin: timeMin ?? new Date().toISOString(),
-      timeMax,
-      maxResults,
-      singleEvents: true,
-      orderBy: "startTime",
-    });
+  async ({ calendarIds, timeMin, timeMax, maxResults }) => {
+    const rows: { date: string; calendar: string; id: string; summary: string; start: string; end: string; attendees: string }[] = [];
 
-    const events = res.data.items ?? [];
-    const formatted = events.map((e) => {
-      const start = e.start?.dateTime ?? e.start?.date ?? "";
-      const end = e.end?.dateTime ?? e.end?.date ?? "";
-      return `- ${e.summary ?? "(無題)"} | ${start} → ${end}`;
-    });
+    for (const calendarId of calendarIds) {
+      try {
+        const res = await calendar.events.list({
+          calendarId,
+          timeMin,
+          timeMax,
+          maxResults,
+          singleEvents: true,
+          orderBy: "startTime",
+        });
+
+        for (const e of res.data.items ?? []) {
+          const startDt = e.start?.dateTime ? new Date(e.start.dateTime) : null;
+          const endDt = e.end?.dateTime ? new Date(e.end.dateTime) : null;
+          const isAllDay = !e.start?.dateTime;
+
+          rows.push({
+            date: isAllDay
+              ? (e.start?.date ?? "")
+              : (startDt?.toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" }) ?? ""),
+            calendar: calendarId,
+            id: e.id ?? "",
+            summary: e.summary ?? "(無題)",
+            start: isAllDay ? "終日" : (startDt?.toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }) ?? ""),
+            end: isAllDay ? "" : (endDt?.toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }) ?? ""),
+            attendees: (e.attendees ?? []).map((a) => a.email).filter(Boolean).join(";"),
+          });
+        }
+      } catch {
+        rows.push({
+          date: "",
+          calendar: calendarId,
+          id: "",
+          summary: "(アクセス権限がありません)",
+          start: "",
+          end: "",
+          attendees: "",
+        });
+      }
+    }
 
     return {
       content: [{
         type: "text",
-        text: formatted.length > 0
-          ? formatted.join("\n")
+        text: rows.length > 0
+          ? encode({ events: rows })
           : "イベントが見つかりませんでした",
       }],
     };
