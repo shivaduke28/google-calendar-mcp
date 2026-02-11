@@ -102,31 +102,23 @@ bun build --compile src/index.ts --outfile google-calendar-mcp
 {
   "internalDomain": "",
   "permissions": {
-    "read": "allow",
-    "create": "allow",
-    "update": {
-      "self_only": "allow",
-      "internal": "allow",
-      "external": "deny"
-    },
-    "delete": {
-      "self_only": "allow",
-      "internal": "allow",
-      "external": "deny"
-    }
+    "read": { "self_only": "allow", "internal": "allow", "external": "allow" },
+    "create": { "self_only": "allow", "internal": "allow", "external": "deny" },
+    "update": { "self_only": "allow", "internal": "allow", "external": "deny" },
+    "delete": { "self_only": "allow", "internal": "allow", "external": "deny" }
   }
 }
 ```
 
 ### 参加者の条件
 
+各操作ごとに、参加者の条件に基づいて `allow` / `deny` を指定します。
+
 | 条件 | 説明 |
 |---|---|
 | `self_only` | 参加者が自分のみ（または参加者なし） |
 | `internal` | 他の参加者が全員 `internalDomain` に属する |
 | `external` | `internalDomain` 外の参加者が含まれる |
-
-`read` / `create` は文字列で一括指定、`update` / `delete` は条件ごとに指定できます。
 
 ## Tests
 

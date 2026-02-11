@@ -54,8 +54,16 @@ describe("checkPermission", () => {
   const config: PermissionConfig = {
     internalDomain: "example.com",
     permissions: {
-      read: PermissionAction.Allow,
-      create: PermissionAction.Allow,
+      read: {
+        self_only: PermissionAction.Allow,
+        internal: PermissionAction.Allow,
+        external: PermissionAction.Allow,
+      },
+      create: {
+        self_only: PermissionAction.Allow,
+        internal: PermissionAction.Allow,
+        external: PermissionAction.Allow,
+      },
       update: {
         self_only: PermissionAction.Allow,
         internal: PermissionAction.Allow,
@@ -116,18 +124,49 @@ describe("checkPermission", () => {
     expect(result.condition).toBe(AttendeeCondition.External);
   });
 
-  it("フラットなパーミッション（全操作同一設定）", () => {
-    const flatConfig: PermissionConfig = {
-      internalDomain: "",
+  it("create internal → deny", () => {
+    const restrictedCreateConfig: PermissionConfig = {
+      internalDomain: "example.com",
       permissions: {
-        read: PermissionAction.Allow,
-        create: PermissionAction.Allow,
-        update: PermissionAction.Deny,
-        delete: PermissionAction.Deny,
+        read: {
+          self_only: PermissionAction.Allow,
+          internal: PermissionAction.Allow,
+          external: PermissionAction.Allow,
+        },
+        create: {
+          self_only: PermissionAction.Allow,
+          internal: PermissionAction.Deny,
+          external: PermissionAction.Deny,
+        },
+        update: {
+          self_only: PermissionAction.Allow,
+          internal: PermissionAction.Allow,
+          external: PermissionAction.Allow,
+        },
+        delete: {
+          self_only: PermissionAction.Allow,
+          internal: PermissionAction.Allow,
+          external: PermissionAction.Allow,
+        },
       },
     };
-    expect(checkPermission(flatConfig, "update", ["me@example.com", "alice@example.com"], SELF).action).toBe(PermissionAction.Deny);
-    expect(checkPermission(flatConfig, "delete", [], SELF).action).toBe(PermissionAction.Deny);
+    const result = checkPermission(restrictedCreateConfig, "create", ["me@example.com", "alice@example.com"], SELF);
+    expect(result.action).toBe(PermissionAction.Deny);
+    expect(result.condition).toBe(AttendeeCondition.Internal);
+  });
+
+  it("全操作deny", () => {
+    const denyAllConfig: PermissionConfig = {
+      internalDomain: "",
+      permissions: {
+        read: { self_only: PermissionAction.Deny, internal: PermissionAction.Deny, external: PermissionAction.Deny },
+        create: { self_only: PermissionAction.Deny, internal: PermissionAction.Deny, external: PermissionAction.Deny },
+        update: { self_only: PermissionAction.Deny, internal: PermissionAction.Deny, external: PermissionAction.Deny },
+        delete: { self_only: PermissionAction.Deny, internal: PermissionAction.Deny, external: PermissionAction.Deny },
+      },
+    };
+    expect(checkPermission(denyAllConfig, "update", ["me@example.com", "alice@example.com"], SELF).action).toBe(PermissionAction.Deny);
+    expect(checkPermission(denyAllConfig, "delete", [], SELF).action).toBe(PermissionAction.Deny);
   });
 });
 
@@ -149,7 +188,16 @@ describe("loadPermissionConfig", () => {
   it("パスがundefinedならデフォルト設定", async () => {
     const config = await loadPermissionConfig(undefined);
     expect(config.internalDomain).toBe("");
-    expect(config.permissions.read).toBe(PermissionAction.Allow);
+    expect(config.permissions.read).toEqual({
+      self_only: PermissionAction.Allow,
+      internal: PermissionAction.Allow,
+      external: PermissionAction.Allow,
+    });
+    expect(config.permissions.create).toEqual({
+      self_only: PermissionAction.Allow,
+      internal: PermissionAction.Allow,
+      external: PermissionAction.Deny,
+    });
     expect(config.permissions.update).toEqual({
       self_only: PermissionAction.Allow,
       internal: PermissionAction.Allow,
@@ -165,6 +213,10 @@ describe("loadPermissionConfig", () => {
   it("存在しないファイルならデフォルト設定", async () => {
     const config = await loadPermissionConfig("/nonexistent/path.json");
     expect(config.internalDomain).toBe("");
-    expect(config.permissions.read).toBe(PermissionAction.Allow);
+    expect(config.permissions.read).toEqual({
+      self_only: PermissionAction.Allow,
+      internal: PermissionAction.Allow,
+      external: PermissionAction.Allow,
+    });
   });
 });

@@ -26,18 +26,26 @@ export interface ConditionalPermission {
 export interface PermissionConfig {
   internalDomain: string;
   permissions: {
-    read: PermissionAction;
-    create: PermissionAction;
-    update: PermissionAction | ConditionalPermission;
-    delete: PermissionAction | ConditionalPermission;
+    read: ConditionalPermission;
+    create: ConditionalPermission;
+    update: ConditionalPermission;
+    delete: ConditionalPermission;
   };
 }
 
 const DEFAULT_CONFIG: PermissionConfig = {
   internalDomain: "",
   permissions: {
-    read: PermissionAction.Allow,
-    create: PermissionAction.Allow,
+    read: {
+      self_only: PermissionAction.Allow,
+      internal: PermissionAction.Allow,
+      external: PermissionAction.Allow,
+    },
+    create: {
+      self_only: PermissionAction.Allow,
+      internal: PermissionAction.Allow,
+      external: PermissionAction.Deny,
+    },
     update: {
       self_only: PermissionAction.Allow,
       internal: PermissionAction.Allow,
@@ -124,8 +132,6 @@ export function checkPermission(
 ): PermissionCheckResult {
   const perm = config.permissions[operation];
   const condition = classifyAttendees(attendees, selfEmail, config.internalDomain);
-
-  if (typeof perm === "string") return { action: perm, condition };
 
   return { action: perm[condition], condition };
 }

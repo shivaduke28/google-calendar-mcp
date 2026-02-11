@@ -1,17 +1,9 @@
 {
   "internalDomain": "example.com",
   "permissions": {
-    "read": "allow",
-    "create": "allow",
-    "update": {
-      "self_only": "allow",
-      "internal": "allow",
-      "external": "deny"
-    },
-    "delete": {
-      "self_only": "allow",
-      "internal": "allow",
-      "external": "deny"
-    }
+    "read": { "self_only": "allow", "internal": "allow", "external": "allow" },
+    "create": { "self_only": "allow", "internal": "allow", "external": "deny" },
+    "update": { "self_only": "allow", "internal": "allow", "external": "deny" },
+    "delete": { "self_only": "allow", "internal": "allow", "external": "deny" }
   }
 }
