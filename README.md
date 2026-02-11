@@ -26,11 +26,10 @@ Google Calendar API の MCP (Model Context Protocol) サーバー。
 4. OAuth 2.0 クライアント ID を作成（デスクトップアプリ）
 5. 認証情報の JSON ファイルをダウンロード
 
-### 2. ビルド
+### 2. インストール
 
 ```bash
-npm install
-npm run build
+bun install
 ```
 
 ### 3. MCP クライアントの設定
@@ -41,8 +40,8 @@ Claude Code の `.mcp.json` での設定例：
 {
   "mcpServers": {
     "google-calendar": {
-      "command": "node",
-      "args": ["/path/to/google-calendar-mcp/dist/index.js"],
+      "command": "bun",
+      "args": ["run", "/path/to/google-calendar-mcp/src/index.ts"],
       "env": {
         "GOOGLE_OAUTH_CREDENTIALS": "/path/to/credentials.json",
         "GOOGLE_CALENDAR_PERMISSIONS": "/path/to/permissions.json"
@@ -105,7 +104,7 @@ Claude Code の `.mcp.json` での設定例：
 ## Tests
 
 ```bash
-npm test
+bun test
 ```
 
 ## License

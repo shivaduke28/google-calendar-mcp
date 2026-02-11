@@ -1,5 +1,4 @@
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, it, expect } from "bun:test";
 import {
   classifyAttendees,
   checkPermission,
@@ -15,64 +14,39 @@ const DOMAIN = "example.com";
 
 describe("classifyAttendees", () => {
   it("参加者なし → self_only", () => {
-    assert.equal(classifyAttendees([], SELF, DOMAIN), AttendeeCondition.SelfOnly);
+    expect(classifyAttendees([], SELF, DOMAIN)).toBe(AttendeeCondition.SelfOnly);
   });
 
   it("自分だけ → self_only", () => {
-    assert.equal(
-      classifyAttendees(["me@example.com"], SELF, DOMAIN),
-      AttendeeCondition.SelfOnly
-    );
+    expect(classifyAttendees(["me@example.com"], SELF, DOMAIN)).toBe(AttendeeCondition.SelfOnly);
   });
 
   it("自分（大文字小文字違い） → self_only", () => {
-    assert.equal(
-      classifyAttendees(["Me@Example.COM"], SELF, DOMAIN),
-      AttendeeCondition.SelfOnly
-    );
+    expect(classifyAttendees(["Me@Example.COM"], SELF, DOMAIN)).toBe(AttendeeCondition.SelfOnly);
   });
 
   it("同じドメインのメンバー → internal", () => {
-    assert.equal(
-      classifyAttendees(["me@example.com", "alice@example.com"], SELF, DOMAIN),
-      AttendeeCondition.Internal
-    );
+    expect(classifyAttendees(["me@example.com", "alice@example.com"], SELF, DOMAIN)).toBe(AttendeeCondition.Internal);
   });
 
   it("同じドメイン複数人 → internal", () => {
-    assert.equal(
-      classifyAttendees(
-        ["me@example.com", "alice@example.com", "bob@example.com"],
-        SELF,
-        DOMAIN
-      ),
-      AttendeeCondition.Internal
-    );
+    expect(
+      classifyAttendees(["me@example.com", "alice@example.com", "bob@example.com"], SELF, DOMAIN)
+    ).toBe(AttendeeCondition.Internal);
   });
 
   it("外部ドメインの参加者 → external", () => {
-    assert.equal(
-      classifyAttendees(["me@example.com", "alice@other.com"], SELF, DOMAIN),
-      AttendeeCondition.External
-    );
+    expect(classifyAttendees(["me@example.com", "alice@other.com"], SELF, DOMAIN)).toBe(AttendeeCondition.External);
   });
 
   it("内部と外部が混在 → external", () => {
-    assert.equal(
-      classifyAttendees(
-        ["me@example.com", "alice@example.com", "bob@other.com"],
-        SELF,
-        DOMAIN
-      ),
-      AttendeeCondition.External
-    );
+    expect(
+      classifyAttendees(["me@example.com", "alice@example.com", "bob@other.com"], SELF, DOMAIN)
+    ).toBe(AttendeeCondition.External);
   });
 
   it("ドメイン未設定 → 他者がいれば external", () => {
-    assert.equal(
-      classifyAttendees(["me@example.com", "alice@example.com"], SELF, ""),
-      AttendeeCondition.External
-    );
+    expect(classifyAttendees(["me@example.com", "alice@example.com"], SELF, "")).toBe(AttendeeCondition.External);
   });
 });
 
@@ -97,49 +71,49 @@ describe("checkPermission", () => {
 
   it("read → allow", () => {
     const result = checkPermission(config, "read", [], SELF);
-    assert.equal(result.action, PermissionAction.Allow);
-    assert.equal(result.condition, AttendeeCondition.SelfOnly);
+    expect(result.action).toBe(PermissionAction.Allow);
+    expect(result.condition).toBe(AttendeeCondition.SelfOnly);
   });
 
   it("create → allow", () => {
     const result = checkPermission(config, "create", [], SELF);
-    assert.equal(result.action, PermissionAction.Allow);
+    expect(result.action).toBe(PermissionAction.Allow);
   });
 
   it("update self_only → allow", () => {
     const result = checkPermission(config, "update", ["me@example.com"], SELF);
-    assert.equal(result.action, PermissionAction.Allow);
-    assert.equal(result.condition, AttendeeCondition.SelfOnly);
+    expect(result.action).toBe(PermissionAction.Allow);
+    expect(result.condition).toBe(AttendeeCondition.SelfOnly);
   });
 
   it("update internal → allow", () => {
     const result = checkPermission(config, "update", ["me@example.com", "alice@example.com"], SELF);
-    assert.equal(result.action, PermissionAction.Allow);
-    assert.equal(result.condition, AttendeeCondition.Internal);
+    expect(result.action).toBe(PermissionAction.Allow);
+    expect(result.condition).toBe(AttendeeCondition.Internal);
   });
 
   it("update external → deny", () => {
     const result = checkPermission(config, "update", ["me@example.com", "alice@other.com"], SELF);
-    assert.equal(result.action, PermissionAction.Deny);
-    assert.equal(result.condition, AttendeeCondition.External);
+    expect(result.action).toBe(PermissionAction.Deny);
+    expect(result.condition).toBe(AttendeeCondition.External);
   });
 
   it("delete self_only → allow", () => {
     const result = checkPermission(config, "delete", [], SELF);
-    assert.equal(result.action, PermissionAction.Allow);
-    assert.equal(result.condition, AttendeeCondition.SelfOnly);
+    expect(result.action).toBe(PermissionAction.Allow);
+    expect(result.condition).toBe(AttendeeCondition.SelfOnly);
   });
 
   it("delete internal → deny", () => {
     const result = checkPermission(config, "delete", ["me@example.com", "alice@example.com"], SELF);
-    assert.equal(result.action, PermissionAction.Deny);
-    assert.equal(result.condition, AttendeeCondition.Internal);
+    expect(result.action).toBe(PermissionAction.Deny);
+    expect(result.condition).toBe(AttendeeCondition.Internal);
   });
 
   it("delete external → deny", () => {
     const result = checkPermission(config, "delete", ["me@example.com", "bob@other.com"], SELF);
-    assert.equal(result.action, PermissionAction.Deny);
-    assert.equal(result.condition, AttendeeCondition.External);
+    expect(result.action).toBe(PermissionAction.Deny);
+    expect(result.condition).toBe(AttendeeCondition.External);
   });
 
   it("フラットなパーミッション（全操作同一設定）", () => {
@@ -152,52 +126,37 @@ describe("checkPermission", () => {
         delete: PermissionAction.Deny,
       },
     };
-    assert.equal(
-      checkPermission(flatConfig, "update", ["me@example.com", "alice@example.com"], SELF).action,
-      PermissionAction.Deny
-    );
-    assert.equal(
-      checkPermission(flatConfig, "delete", [], SELF).action,
-      PermissionAction.Deny
-    );
+    expect(checkPermission(flatConfig, "update", ["me@example.com", "alice@example.com"], SELF).action).toBe(PermissionAction.Deny);
+    expect(checkPermission(flatConfig, "delete", [], SELF).action).toBe(PermissionAction.Deny);
   });
 });
 
 describe("denyMessage", () => {
   it("外部参加者のdelete", () => {
-    assert.equal(
-      denyMessage("delete", AttendeeCondition.External),
-      "外部参加者を含むイベントのdeleteは許可されていません。"
-    );
+    expect(denyMessage("delete", AttendeeCondition.External)).toBe("外部参加者を含むイベントのdeleteは許可されていません。");
   });
 
   it("内部メンバーのupdate", () => {
-    assert.equal(
-      denyMessage("update", AttendeeCondition.Internal),
-      "内部メンバーを含むイベントのupdateは許可されていません。"
-    );
+    expect(denyMessage("update", AttendeeCondition.Internal)).toBe("内部メンバーを含むイベントのupdateは許可されていません。");
   });
 
   it("自分のみのdelete", () => {
-    assert.equal(
-      denyMessage("delete", AttendeeCondition.SelfOnly),
-      "自分のみを含むイベントのdeleteは許可されていません。"
-    );
+    expect(denyMessage("delete", AttendeeCondition.SelfOnly)).toBe("自分のみを含むイベントのdeleteは許可されていません。");
   });
 });
 
 describe("loadPermissionConfig", () => {
   it("パスがundefinedならデフォルト設定", async () => {
     const config = await loadPermissionConfig(undefined);
-    assert.equal(config.internalDomain, "");
-    assert.equal(config.permissions.read, PermissionAction.Allow);
-    assert.equal(config.permissions.update, PermissionAction.Allow);
-    assert.equal(config.permissions.delete, PermissionAction.Allow);
+    expect(config.internalDomain).toBe("");
+    expect(config.permissions.read).toBe(PermissionAction.Allow);
+    expect(config.permissions.update).toBe(PermissionAction.Allow);
+    expect(config.permissions.delete).toBe(PermissionAction.Allow);
   });
 
   it("存在しないファイルならデフォルト設定", async () => {
     const config = await loadPermissionConfig("/nonexistent/path.json");
-    assert.equal(config.internalDomain, "");
-    assert.equal(config.permissions.read, PermissionAction.Allow);
+    expect(config.internalDomain).toBe("");
+    expect(config.permissions.read).toBe(PermissionAction.Allow);
   });
 });
