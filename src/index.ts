@@ -7,14 +7,14 @@ import { calendar as googleCalendar } from "@googleapis/calendar";
 import { loadPermissionConfig, checkPermission, denyMessage, PermissionAction, OperationType } from "./permissions.js";
 import { dirname, resolve } from "node:path";
 import { existsSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
 
 // バイナリと同じディレクトリをデフォルトのベースパスにする
 // 環境変数が設定されていればそちらを優先する
 const baseDir = dirname(process.execPath);
 const credentialsPath = process.env.GOOGLE_OAUTH_CREDENTIALS ?? resolve(baseDir, "credentials.json");
 const tokensPath = process.env.GOOGLE_OAUTH_TOKENS ?? resolve(baseDir, "tokens.json");
-const permissionConfigPath = process.env.GOOGLE_CALENDAR_PERMISSIONS ??
-  (existsSync(resolve(baseDir, "permissions.json")) ? resolve(baseDir, "permissions.json") : undefined);
+const permissionConfigPath = process.env.GOOGLE_CALENDAR_PERMISSIONS ?? resolve(baseDir, "permissions.json");
 
 if (!existsSync(credentialsPath)) {
   console.error(`credentials.json が見つかりません: ${credentialsPath}`);
@@ -137,10 +137,11 @@ server.registerTool(
       end: z.string().describe("終了日時（ISO 8601）"),
       description: z.string().optional().describe("説明"),
       location: z.string().optional().describe("場所"),
+      attendees: z.array(z.string()).optional().describe("ゲストのメールアドレスの配列"),
     },
   },
-  async ({ calendarId, summary, start, end, description, location }) => {
-    const { action, condition } = checkPermission(permConfig, OperationType.Create, [], selfEmail);
+  async ({ calendarId, summary, start, end, description, location, attendees }) => {
+    const { action, condition } = checkPermission(permConfig, OperationType.Create, attendees ?? [], selfEmail);
 
     if (action === PermissionAction.Deny) {
       return {
@@ -157,6 +158,7 @@ server.registerTool(
         end: { dateTime: end, timeZone: "Asia/Tokyo" },
         ...(description !== undefined && { description }),
         ...(location !== undefined && { location }),
+        ...(attendees !== undefined && { attendees: attendees.map((email) => ({ email })) }),
       },
     });
 
@@ -181,16 +183,17 @@ server.registerTool(
       end: z.string().optional().describe("新しい終了日時（ISO 8601）"),
       description: z.string().optional().describe("新しい説明"),
       location: z.string().optional().describe("新しい場所"),
+      attendees: z.array(z.string()).optional().describe("新しいゲストのメールアドレスの配列（指定すると既存のゲストを置き換える）"),
     },
   },
-  async ({ calendarId, eventId, summary, start, end, description, location }) => {
+  async ({ calendarId, eventId, summary, start, end, description, location, attendees: newAttendees }) => {
     // 既存のイベントを取得してパーミッションチェック
     const existing = await cal.events.get({ calendarId, eventId });
-    const attendees = (existing.data.attendees ?? [])
+    const existingAttendees = (existing.data.attendees ?? [])
       .map((a) => a.email)
       .filter((e): e is string => Boolean(e));
 
-    const { action, condition } = checkPermission(permConfig, OperationType.Update, attendees, selfEmail);
+    const { action, condition } = checkPermission(permConfig, OperationType.Update, existingAttendees, selfEmail);
 
     if (action === PermissionAction.Deny) {
       return {
@@ -205,6 +208,7 @@ server.registerTool(
     if (location !== undefined) patch.location = location;
     if (start !== undefined) patch.start = { dateTime: start, timeZone: "Asia/Tokyo" };
     if (end !== undefined) patch.end = { dateTime: end, timeZone: "Asia/Tokyo" };
+    if (newAttendees !== undefined) patch.attendees = newAttendees.map((email) => ({ email }));
 
     const updated = await cal.events.patch({
       calendarId,

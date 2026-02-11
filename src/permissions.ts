@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 
 export const PermissionAction = {
   Allow: "allow",
@@ -37,8 +38,16 @@ const DEFAULT_CONFIG: PermissionConfig = {
   permissions: {
     read: PermissionAction.Allow,
     create: PermissionAction.Allow,
-    update: PermissionAction.Allow,
-    delete: PermissionAction.Allow,
+    update: {
+      self_only: PermissionAction.Allow,
+      internal: PermissionAction.Allow,
+      external: PermissionAction.Deny,
+    },
+    delete: {
+      self_only: PermissionAction.Allow,
+      internal: PermissionAction.Allow,
+      external: PermissionAction.Deny,
+    },
   },
 };
 
@@ -46,6 +55,17 @@ export async function loadPermissionConfig(
   configPath: string | undefined
 ): Promise<PermissionConfig> {
   if (!configPath) return DEFAULT_CONFIG;
+
+  // ファイルがなければデフォルト設定を書き出す
+  if (!existsSync(configPath)) {
+    try {
+      await writeFile(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2) + "\n");
+      console.error(`permissions.json を作成しました: ${configPath}`);
+    } catch {
+      console.error(`permissions.json の作成に失敗しました: ${configPath}`);
+    }
+    return DEFAULT_CONFIG;
+  }
 
   try {
     const content = await readFile(configPath, "utf-8");

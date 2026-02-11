@@ -150,8 +150,16 @@ describe("loadPermissionConfig", () => {
     const config = await loadPermissionConfig(undefined);
     expect(config.internalDomain).toBe("");
     expect(config.permissions.read).toBe(PermissionAction.Allow);
-    expect(config.permissions.update).toBe(PermissionAction.Allow);
-    expect(config.permissions.delete).toBe(PermissionAction.Allow);
+    expect(config.permissions.update).toEqual({
+      self_only: PermissionAction.Allow,
+      internal: PermissionAction.Allow,
+      external: PermissionAction.Deny,
+    });
+    expect(config.permissions.delete).toEqual({
+      self_only: PermissionAction.Allow,
+      internal: PermissionAction.Allow,
+      external: PermissionAction.Deny,
+    });
   });
 
   it("存在しないファイルならデフォルト設定", async () => {
