@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { encode } from "@toon-format/toon";
 import { authorize } from "./auth.js";
-import { google } from "googleapis";
+import { calendar as googleCalendar } from "@googleapis/calendar";
 import { loadPermissionConfig, checkPermission, denyMessage, PermissionAction, OperationType } from "./permissions.js";
 
 // 環境変数から設定を読む
@@ -18,7 +18,7 @@ if (!credentialsPath) {
 
 // OAuth2認証
 const auth = await authorize(credentialsPath, tokensPath);
-const calendar = google.calendar({ version: "v3", auth });
+const cal = googleCalendar({ version: "v3", auth });
 
 // パーミッション設定
 const permConfig = await loadPermissionConfig(permissionConfigPath);
@@ -26,7 +26,7 @@ const permConfig = await loadPermissionConfig(permissionConfigPath);
 // 認証ユーザーのメールアドレスを取得
 let selfEmail = "";
 try {
-  const me = await calendar.calendarList.get({ calendarId: "primary" });
+  const me = await cal.calendarList.get({ calendarId: "primary" });
   selfEmail = me.data.id ?? "";
 } catch {
   console.error("認証ユーザーのメールアドレスの取得に失敗しました");
@@ -70,7 +70,7 @@ server.registerTool(
 
     for (const calendarId of calendarIds) {
       try {
-        const res = await calendar.events.list({
+        const res = await cal.events.list({
           calendarId,
           timeMin,
           timeMax,
@@ -143,7 +143,7 @@ server.registerTool(
       };
     }
 
-    const event = await calendar.events.insert({
+    const event = await cal.events.insert({
       calendarId,
       requestBody: {
         summary,
@@ -179,7 +179,7 @@ server.registerTool(
   },
   async ({ calendarId, eventId, summary, start, end, description, location }) => {
     // 既存のイベントを取得してパーミッションチェック
-    const existing = await calendar.events.get({ calendarId, eventId });
+    const existing = await cal.events.get({ calendarId, eventId });
     const attendees = (existing.data.attendees ?? [])
       .map((a) => a.email)
       .filter((e): e is string => Boolean(e));
@@ -200,7 +200,7 @@ server.registerTool(
     if (start !== undefined) patch.start = { dateTime: start, timeZone: "Asia/Tokyo" };
     if (end !== undefined) patch.end = { dateTime: end, timeZone: "Asia/Tokyo" };
 
-    const updated = await calendar.events.patch({
+    const updated = await cal.events.patch({
       calendarId,
       eventId,
       requestBody: patch,
@@ -226,7 +226,7 @@ server.registerTool(
   },
   async ({ calendarId, eventId }) => {
     // 既存のイベントを取得してパーミッションチェック
-    const existing = await calendar.events.get({ calendarId, eventId });
+    const existing = await cal.events.get({ calendarId, eventId });
     const attendees = (existing.data.attendees ?? [])
       .map((a) => a.email)
       .filter((e): e is string => Boolean(e));
@@ -240,7 +240,7 @@ server.registerTool(
       };
     }
 
-    await calendar.events.delete({ calendarId, eventId });
+    await cal.events.delete({ calendarId, eventId });
 
     return {
       content: [{
