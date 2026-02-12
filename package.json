@@ -1,25 +1,37 @@
 {
   "name": "google-calendar-mcp",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
   "main": "dist/index.js",
+  "bin": {
+    "google-calendar-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "start": "bun run src/index.ts",
-    "test": "bun test",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "tsx --test test/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/shivaduke28/google-calendar-mcp.git"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "mcp",
+    "google-calendar",
+    "model-context-protocol"
+  ],
+  "author": "shivaduke",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/shivaduke28/google-calendar-mcp/issues"
   },
   "homepage": "https://github.com/shivaduke28/google-calendar-mcp#readme",
-  "description": "",
+  "description": "Google Calendar MCP server with domain-based permission control",
   "dependencies": {
     "@googleapis/calendar": "^14.2.0",
     "@modelcontextprotocol/sdk": "^1.26.0",

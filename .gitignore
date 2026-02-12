@@ -3,5 +3,4 @@ dist/
 *.js.map
 tokens*.json
 permissions-test.json
-google-calendar-mcp
-google-calendar-mcp-*
+bun.lock

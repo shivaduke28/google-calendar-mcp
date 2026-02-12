@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -5,20 +6,22 @@ import { encode } from "@toon-format/toon";
 import { authorize } from "./auth.js";
 import { calendar as googleCalendar } from "@googleapis/calendar";
 import { loadPermissionConfig, checkPermission, denyMessage, PermissionAction, OperationType } from "./permissions.js";
-import { dirname, resolve } from "node:path";
 import { existsSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
 
-// バイナリと同じディレクトリをデフォルトのベースパスにする
-// 環境変数が設定されていればそちらを優先する
-const baseDir = dirname(process.execPath);
-const credentialsPath = process.env.GOOGLE_OAUTH_CREDENTIALS ?? resolve(baseDir, "credentials.json");
-const tokensPath = process.env.GOOGLE_OAUTH_TOKENS ?? resolve(baseDir, "tokens.json");
-const permissionConfigPath = process.env.GOOGLE_CALENDAR_PERMISSIONS ?? resolve(baseDir, "permissions.json");
+const credentialsPath = process.env.GOOGLE_OAUTH_CREDENTIALS;
+const tokensPath = process.env.GOOGLE_OAUTH_TOKENS;
+const permissionConfigPath = process.env.GOOGLE_CALENDAR_PERMISSIONS;
 
+if (!credentialsPath) {
+  console.error("GOOGLE_OAUTH_CREDENTIALS 環境変数を設定してください");
+  process.exit(1);
+}
+if (!tokensPath) {
+  console.error("GOOGLE_OAUTH_TOKENS 環境変数を設定してください");
+  process.exit(1);
+}
 if (!existsSync(credentialsPath)) {
   console.error(`credentials.json が見つかりません: ${credentialsPath}`);
-  console.error("GOOGLE_OAUTH_CREDENTIALS 環境変数を設定するか、バイナリと同じディレクトリに credentials.json を配置してください");
   process.exit(1);
 }
 

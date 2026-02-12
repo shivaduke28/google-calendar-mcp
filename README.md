@@ -28,25 +28,19 @@ Google Calendar API の MCP (Model Context Protocol) サーバー。
 
 ### 2. 使い方
 
-#### バイナリ版（推奨）
-
-バイナリと `credentials.json` を同じディレクトリに配置するだけで動きます。
-
-```
-some-folder/
-├── google-calendar-mcp    ← バイナリ
-├── credentials.json       ← GCP からダウンロードした認証情報
-├── permissions.json       ← 初回起動時に自動生成
-└── tokens.json            ← 初回認証時に自動生成
-```
-
-MCP クライアントの設定：
+#### npx（推奨）
 
 ```json
 {
   "mcpServers": {
     "google-calendar": {
-      "command": "/path/to/google-calendar-mcp"
+      "command": "npx",
+      "args": ["-y", "google-calendar-mcp"],
+      "env": {
+        "GOOGLE_OAUTH_CREDENTIALS": "/path/to/credentials.json",
+        "GOOGLE_OAUTH_TOKENS": "/path/to/tokens.json",
+        "GOOGLE_CALENDAR_PERMISSIONS": "/path/to/permissions.json"
+      }
     }
   }
 }
@@ -55,48 +49,42 @@ MCP クライアントの設定：
 #### ソースから実行
 
 ```bash
-bun install
+npm install
+npm run build
 ```
 
 ```json
 {
   "mcpServers": {
     "google-calendar": {
-      "command": "bun",
-      "args": ["run", "/path/to/google-calendar-mcp/src/index.ts"],
+      "command": "node",
+      "args": ["/path/to/google-calendar-mcp/dist/index.js"],
       "env": {
-        "GOOGLE_OAUTH_CREDENTIALS": "/path/to/credentials.json"
+        "GOOGLE_OAUTH_CREDENTIALS": "/path/to/credentials.json",
+        "GOOGLE_OAUTH_TOKENS": "/path/to/tokens.json"
       }
     }
   }
 }
 ```
 
-#### バイナリのビルド
+### 3. 環境変数
 
-```bash
-bun build --compile src/index.ts --outfile google-calendar-mcp
-```
-
-### 3. 認証
-
-初回起動時にブラウザが開き、Google アカウントでの認証を求められます。認証後、トークンが `tokens.json` に自動保存され、以降はブラウザ認証なしで起動できます。
-
-## Environment Variables
-
-すべて省略可能です。バイナリと同じディレクトリのファイルを自動検出します。
-
-| 変数 | デフォルト | 説明 |
+| 変数 | 必須 | 説明 |
 |---|---|---|
-| `GOOGLE_OAUTH_CREDENTIALS` | `{バイナリDir}/credentials.json` | OAuth クライアント認証情報の JSON ファイルパス |
-| `GOOGLE_OAUTH_TOKENS` | `{バイナリDir}/tokens.json` | ユーザートークンの保存先パス。初回認証時に自動生成 |
-| `GOOGLE_CALENDAR_PERMISSIONS` | `{バイナリDir}/permissions.json` | パーミッション設定ファイルパス。存在しなければ自動生成 |
+| `GOOGLE_OAUTH_CREDENTIALS` | Yes | OAuth クライアント認証情報の JSON ファイルパス |
+| `GOOGLE_OAUTH_TOKENS` | Yes | ユーザートークンの保存先パス。初回認証時に自動生成 |
+| `GOOGLE_CALENDAR_PERMISSIONS` | No | パーミッション設定ファイルパス。未指定時はデフォルト設定を使用 |
+
+### 4. 認証
+
+初回起動時にブラウザが開き、Google アカウントでの認証を求められます。認証後、トークンが `GOOGLE_OAUTH_TOKENS` で指定したパスに自動保存され、以降はブラウザ認証なしで起動できます。
 
 ## Permissions
 
 パーミッション設定ファイルで、操作タイプと参加者の条件に基づいて `allow` / `deny` を制御できます。
 
-`permissions.json` が存在しない場合、以下のデフォルト設定で自動生成されます：
+`GOOGLE_CALENDAR_PERMISSIONS` で指定したファイルが存在しない場合、以下のデフォルト設定で自動生成されます：
 
 ```json
 {
@@ -120,10 +108,13 @@ bun build --compile src/index.ts --outfile google-calendar-mcp
 | `internal` | 他の参加者が全員 `internalDomain` に属する |
 | `external` | `internalDomain` 外の参加者が含まれる |
 
-## Tests
+## Development
 
 ```bash
-bun test
+npm install
+npm run dev          # tsx で開発実行
+npm run build        # tsc でビルド
+npm run typecheck    # 型チェック
 ```
 
 ## License
