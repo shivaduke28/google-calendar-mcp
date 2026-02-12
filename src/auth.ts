@@ -1,6 +1,7 @@
 import { OAuth2Client } from "google-auth-library";
 import { readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
+import { exec } from "node:child_process";
 
 interface OAuthCredentials {
   installed: {
@@ -90,7 +91,13 @@ function authenticateWithBrowser(
     });
 
     server.listen(3000, () => {
-      console.error(`\n認証が必要です。ブラウザで以下のURLを開いてください:\n${authUrl}\n`);
+      console.error(`\n認証が必要です。ブラウザを開きます...\n`);
+      const command = process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
+      exec(`${command} '${authUrl}'`, (err) => {
+        if (err) {
+          console.error(`ブラウザの自動起動に失敗しました。以下のURLを手動で開いてください:\n${authUrl}\n`);
+        }
+      });
     });
   });
 }
