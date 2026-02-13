@@ -35,7 +35,7 @@ Google Calendar API の MCP (Model Context Protocol) サーバー。
   "mcpServers": {
     "google-calendar": {
       "command": "npx",
-      "args": ["-y", "google-calendar-mcp"],
+      "args": ["-y", "@shivaduke28/google-calendar-mcp"],
       "env": {
         "GOOGLE_OAUTH_CREDENTIALS": "/path/to/credentials.json",
         "GOOGLE_OAUTH_TOKENS": "/path/to/tokens.json",
