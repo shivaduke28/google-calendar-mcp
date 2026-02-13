@@ -196,7 +196,7 @@ server.registerTool(
       .map((a) => a.email)
       .filter((e): e is string => Boolean(e));
 
-    const checkTarget = newAttendees !== undefined ? newAttendees : existingAttendees;
+    const checkTarget = newAttendees !== undefined ? [...new Set([...existingAttendees, ...newAttendees])] : existingAttendees;
     const { action, condition } = checkPermission(permConfig, OperationType.Update, checkTarget, selfEmail);
 
     if (action === PermissionAction.Deny) {
