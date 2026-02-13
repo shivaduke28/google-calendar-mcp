@@ -7,17 +7,14 @@ import { authorize } from "./auth.js";
 import { calendar as googleCalendar } from "@googleapis/calendar";
 import { loadPermissionConfig, checkPermission, denyMessage, PermissionAction, OperationType } from "./permissions.js";
 import { existsSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 const credentialsPath = process.env.GOOGLE_OAUTH_CREDENTIALS;
-const tokensPath = process.env.GOOGLE_OAUTH_TOKENS;
 const permissionConfigPath = process.env.GOOGLE_CALENDAR_PERMISSIONS;
 
 if (!credentialsPath) {
   console.error("GOOGLE_OAUTH_CREDENTIALS 環境変数を設定してください");
-  process.exit(1);
-}
-if (!tokensPath) {
-  console.error("GOOGLE_OAUTH_TOKENS 環境変数を設定してください");
   process.exit(1);
 }
 if (!existsSync(credentialsPath)) {
@@ -25,25 +22,33 @@ if (!existsSync(credentialsPath)) {
   process.exit(1);
 }
 
-// OAuth2認証
-const auth = await authorize(credentialsPath, tokensPath);
-const cal = googleCalendar({ version: "v3", auth });
+const resolvedCredentialsPath: string = credentialsPath;
+const resolvedTokensPath: string = process.env.GOOGLE_OAUTH_TOKENS ?? join(homedir(), ".config", "google-calendar-mcp", "tokens.json");
 
 // パーミッション設定
 const permConfig = await loadPermissionConfig(permissionConfigPath);
 
-// 認証ユーザーのメールアドレスを取得
+// lazy auth: ツール呼び出し時に初めて認証する
+let calClient: ReturnType<typeof googleCalendar> | null = null;
 let selfEmail = "";
-try {
-  const me = await cal.calendarList.get({ calendarId: "primary" });
-  selfEmail = me.data.id ?? "";
-} catch {
-  console.error("認証ユーザーのメールアドレスの取得に失敗しました");
+
+async function getCal() {
+  if (!calClient) {
+    const auth = await authorize(resolvedCredentialsPath, resolvedTokensPath);
+    calClient = googleCalendar({ version: "v3", auth });
+    try {
+      const me = await calClient.calendarList.get({ calendarId: "primary" });
+      selfEmail = me.data.id ?? "";
+    } catch {
+      console.error("認証ユーザーのメールアドレスの取得に失敗しました");
+    }
+  }
+  return calClient;
 }
 
 const server = new McpServer({
   name: "google-calendar-mcp",
-  version: "0.2.1",
+  version: "0.4.0",
 });
 
 server.registerTool(
@@ -75,6 +80,7 @@ server.registerTool(
     },
   },
   async ({ calendarIds, timeMin, timeMax, maxResults }) => {
+    const cal = await getCal();
     const rows: { date: string; calendar: string; id: string; summary: string; start: string; end: string; attendees: string }[] = [];
 
     for (const calendarId of calendarIds) {
@@ -144,6 +150,7 @@ server.registerTool(
     },
   },
   async ({ calendarId, summary, start, end, description, location, attendees }) => {
+    const cal = await getCal();
     const { action, condition } = checkPermission(permConfig, OperationType.Create, attendees ?? [], selfEmail);
 
     if (action === PermissionAction.Deny) {
@@ -190,6 +197,7 @@ server.registerTool(
     },
   },
   async ({ calendarId, eventId, summary, start, end, description, location, attendees: newAttendees }) => {
+    const cal = await getCal();
     // 既存のイベントを取得してパーミッションチェック
     const existing = await cal.events.get({ calendarId, eventId });
     const existingAttendees = (existing.data.attendees ?? [])
@@ -239,6 +247,7 @@ server.registerTool(
     },
   },
   async ({ calendarId, eventId }) => {
+    const cal = await getCal();
     // 既存のイベントを取得してパーミッションチェック
     const existing = await cal.events.get({ calendarId, eventId });
     const attendees = (existing.data.attendees ?? [])

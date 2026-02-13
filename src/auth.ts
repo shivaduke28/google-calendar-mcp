@@ -1,5 +1,6 @@
 import { OAuth2Client } from "google-auth-library";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { createServer } from "node:http";
 import { exec } from "node:child_process";
 
@@ -38,17 +39,33 @@ export async function authorize(
     "http://localhost:3000/callback"
   );
 
-  // 保存済みトークンがあれば読み込む
+  // 保存済みトークンがあれば読み込み、有効性を確認
+  let hasTokens = false;
   try {
     const tokens = JSON.parse(await readFile(tokensPath, "utf-8")) as SavedTokens;
     oauth2Client.setCredentials(tokens);
-    return oauth2Client;
+    hasTokens = true;
   } catch {
-    // トークンがなければブラウザ認証
+    // ファイルなしまたは破損
+  }
+
+  if (hasTokens) {
+    try {
+      await oauth2Client.getAccessToken();
+      return oauth2Client;
+    } catch (err: unknown) {
+      const status = (err as { status?: number }).status ?? (err as { code?: number }).code;
+      if (status === 401 || status === 400) {
+        // トークン失効 → ブラウザ認証へ
+      } else {
+        throw err;
+      }
+    }
   }
 
   const tokens = await authenticateWithBrowser(oauth2Client);
-  await writeFile(tokensPath, JSON.stringify(tokens, null, 2));
+  await mkdir(dirname(tokensPath), { recursive: true });
+  await writeFile(tokensPath, JSON.stringify(tokens, null, 2), { mode: 0o600 });
   oauth2Client.setCredentials(tokens);
   return oauth2Client;
 }
