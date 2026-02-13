@@ -129,9 +129,20 @@ describe("checkPermission", () => {
 
   it("update: 既存がinternalでも更新後の参加者にexternalが含まれればdeny", () => {
     // update-eventで既存参加者はinternalだが、新しい参加者リストにexternalメンバーを追加するケース
-    // checkPermissionには更新後の参加者リストを渡すべき
+    // checkPermissionには既存と新規の和集合を渡すべき
     const newAttendees = ["me@example.com", "alice@example.com", "bob@other.com"];
     const result = checkPermission(config, "update", newAttendees, SELF);
+    assert.equal(result.action, PermissionAction.Deny);
+    assert.equal(result.condition, AttendeeCondition.External);
+  });
+
+  it("update: 既存がexternalで新規がinternalでも和集合でdeny", () => {
+    // 既存参加者にexternalがいるイベントの参加者をinternalのみに置き換えようとしても
+    // 和集合でチェックするためdenyになるべき
+    const existing = ["me@example.com", "bob@other.com"];
+    const newAttendees = ["me@example.com", "alice@example.com"];
+    const union = [...new Set([...existing, ...newAttendees])];
+    const result = checkPermission(config, "update", union, SELF);
     assert.equal(result.action, PermissionAction.Deny);
     assert.equal(result.condition, AttendeeCondition.External);
   });
