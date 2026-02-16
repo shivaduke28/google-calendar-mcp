@@ -185,6 +185,61 @@ server.registerTool(
 );
 
 server.registerTool(
+  "freebusy",
+  {
+    description: "複数人のカレンダーの空き/忙し情報を取得する。予定の詳細は返さず、busy（予定あり）の時間帯のみ返す。日程調整に最適。レスポンスはTOON形式で返す。",
+    inputSchema: {
+      calendarIds: z.array(z.string()).describe("カレンダーID（メールアドレス）の配列。自分のカレンダーは \"primary\""),
+      timeMin: z.string().describe("開始日時（ISO 8601）"),
+      timeMax: z.string().describe("終了日時（ISO 8601）"),
+    },
+  },
+  async ({ calendarIds, timeMin, timeMax }) => {
+    const cal = await getCal();
+    const res = await cal.freebusy.query({
+      requestBody: {
+        timeMin,
+        timeMax,
+        timeZone: "Asia/Tokyo",
+        items: calendarIds.map((id) => ({ id })),
+      },
+    });
+
+    const rows: { calendar: string; start: string; end: string; error: string }[] = [];
+
+    for (const calendarId of calendarIds) {
+      const data = res.data.calendars?.[calendarId];
+      if (data?.errors?.length) {
+        rows.push({
+          calendar: calendarId,
+          start: "",
+          end: "",
+          error: data.errors.map((e) => e.reason ?? "unknown").join(", "),
+        });
+      } else {
+        for (const busy of data?.busy ?? []) {
+          rows.push({
+            calendar: calendarId,
+            start: busy.start ?? "",
+            end: busy.end ?? "",
+            error: "",
+          });
+        }
+      }
+    }
+
+    return {
+      content: [{
+        type: "text",
+        text: rows.length > 0
+          ? encode({ busy: rows })
+          : "指定期間にbusy区間はありません",
+      }],
+    };
+  }
+);
+
+server.registerTool(
   "create-event",
   {
     description: "カレンダーイベントを作成する。",
