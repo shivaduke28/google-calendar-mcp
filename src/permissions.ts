@@ -1,5 +1,6 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
+import { dirname } from "node:path";
 
 export const PermissionAction = {
   Allow: "allow",
@@ -67,6 +68,7 @@ export async function loadPermissionConfig(
   // ファイルがなければデフォルト設定を書き出す
   if (!existsSync(configPath)) {
     try {
+      await mkdir(dirname(configPath), { recursive: true });
       await writeFile(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2) + "\n");
       console.error(`permissions.json を作成しました: ${configPath}`);
     } catch {
