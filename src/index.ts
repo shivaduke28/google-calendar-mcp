@@ -10,6 +10,8 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import { findMeetingUrl } from "./meeting-url.js";
+
 function stripHtml(html: string): string {
   return html
     .replace(/<br\s*\/?>/gi, "\n")
@@ -122,7 +124,11 @@ server.registerTool(
           const endDt = e.end?.dateTime ? new Date(e.end.dateTime) : null;
           const isAllDay = !e.start?.dateTime;
 
-          const conferenceUri = e.conferenceData?.entryPoints?.find((ep) => ep.entryPointType === "video")?.uri ?? "";
+          const conferenceUri =
+            e.conferenceData?.entryPoints?.find((ep) => ep.entryPointType === "video")?.uri
+            ?? findMeetingUrl(e.description)
+            ?? findMeetingUrl(e.location)
+            ?? "";
 
           rows.push({
             date: isAllDay
