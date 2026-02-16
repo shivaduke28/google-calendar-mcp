@@ -10,6 +10,22 @@ import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, " ")
+    .replace(/[^\S\n]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 const credentialsPath = process.env.GOOGLE_OAUTH_CREDENTIALS;
 const permissionConfigPath = process.env.GOOGLE_CALENDAR_PERMISSIONS;
 
@@ -76,12 +92,18 @@ server.registerTool(
       calendarIds: z.array(z.string()).describe("カレンダーID（メールアドレス）の配列。自分のカレンダーは \"primary\""),
       timeMin: z.string().describe("開始日時（ISO 8601）"),
       timeMax: z.string().describe("終了日時（ISO 8601）"),
-      maxResults: z.number().optional().default(20).describe("カレンダーごとの最大取得件数"),
+      maxResults: z.number().optional().default(50).describe("カレンダーごとの最大取得件数"),
     },
   },
   async ({ calendarIds, timeMin, timeMax, maxResults }) => {
     const cal = await getCal();
-    const rows: { date: string; calendar: string; id: string; summary: string; start: string; end: string; attendees: string }[] = [];
+    const rows: {
+      date: string; calendar: string; id: string; summary: string;
+      start: string; end: string; location: string; description: string;
+      conferenceUrl: string;
+      attendees: { email: string; displayName: string; status: string; organizer: boolean; resource: boolean }[];
+      isRecurring: boolean; status: string; transparency: string;
+    }[] = [];
 
     for (const calendarId of calendarIds) {
       try {
@@ -92,12 +114,15 @@ server.registerTool(
           maxResults,
           singleEvents: true,
           orderBy: "startTime",
+          ...({ conferenceDataVersion: 1 }),
         });
 
         for (const e of res.data.items ?? []) {
           const startDt = e.start?.dateTime ? new Date(e.start.dateTime) : null;
           const endDt = e.end?.dateTime ? new Date(e.end.dateTime) : null;
           const isAllDay = !e.start?.dateTime;
+
+          const conferenceUri = e.conferenceData?.entryPoints?.find((ep) => ep.entryPointType === "video")?.uri ?? "";
 
           rows.push({
             date: isAllDay
@@ -108,7 +133,19 @@ server.registerTool(
             summary: e.summary ?? "(無題)",
             start: isAllDay ? "終日" : (startDt?.toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }) ?? ""),
             end: isAllDay ? "" : (endDt?.toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }) ?? ""),
-            attendees: (e.attendees ?? []).map((a) => a.email).filter(Boolean).join(";"),
+            location: e.location ?? "",
+            description: e.description ? stripHtml(e.description) : "",
+            conferenceUrl: conferenceUri,
+            attendees: (e.attendees ?? []).map((a) => ({
+              email: a.email ?? "",
+              displayName: a.displayName ?? "",
+              status: a.responseStatus ?? "",
+              organizer: a.organizer ?? false,
+              resource: a.resource ?? false,
+            })),
+            isRecurring: !!e.recurringEventId,
+            status: e.status ?? "",
+            transparency: e.transparency ?? "opaque",
           });
         }
       } catch {
@@ -119,7 +156,13 @@ server.registerTool(
           summary: "(アクセス権限がありません)",
           start: "",
           end: "",
-          attendees: "",
+          location: "",
+          description: "",
+          conferenceUrl: "",
+          attendees: [],
+          isRecurring: false,
+          status: "",
+          transparency: "opaque",
         });
       }
     }
